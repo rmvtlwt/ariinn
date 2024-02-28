@@ -1,0 +1,18 @@
+{
+	"imports": {
+		"@discordjs/core": "npm:@discordjs/core@1.1.1",
+		"@discordjs/rest": "npm:@discordjs/rest@2.2.0",
+		"@discordjs/ws": "npm:@discordjs/ws@1.0.2",
+		"openai/": "https://deno.land/x/openai@v4.28.0/"
+	},
+	"fmt": {
+		"useTabs": true,
+		"indentWidth": 4
+	},
+	"tasks": {
+		"test": "deno run -A --watch --env --check main.ts"
+	},
+	"unstable": [
+		"kv"
+	]
+}
