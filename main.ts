@@ -7,7 +7,7 @@ import {
 import { WebSocketManager } from "npm:@discordjs/ws";
 
 import { OpenAI } from "openai/mod.ts";
-import { MessageContentText } from "openai/resources/beta/threads/messages/mod.ts";
+import type { MessageContentText } from "openai/resources/beta/threads/messages/mod.ts";
 
 const token = Deno.env.get("DISCORD_TOKEN")!;
 
@@ -24,13 +24,19 @@ const ai = new OpenAI({ apiKey: Deno.env.get("OPENAI_API_KEY")! });
 
 const kv = await Deno.openKv();
 
+let isRunning = false;
+
 client.on(
 	GatewayDispatchEvents.MessageCreate,
 	async ({ api, data: message }) => {
 		if (
+			!isRunning &&
 			!message.author.bot &&
 			message.channel_id === Deno.env.get("DISCORD_CHAT_CHANNEL") &&
-			message.content
+			message.content &&
+			message.mentions.some((entity) =>
+				entity.id === Deno.env.get("DISCORD_ID")
+			)
 		) {
 			await api.channels.showTyping(message.channel_id);
 			const kvKey = ["threads", message.channel_id];
@@ -42,10 +48,12 @@ client.on(
 				await kv.set(kvKey, newThread.id);
 			}
 
+			isRunning = true;
+
 			await ai.beta.threads.messages.create(threadId, {
-				content: message.content,
+				content:
+					`@${message.author.username}#${message.author.discriminator}: ${message.content}`,
 				role: "user",
-				metadata: { username: message.author.username },
 			});
 
 			let run = await ai.beta.threads.runs.create(threadId, {
@@ -55,6 +63,8 @@ client.on(
 			while (run.status != "completed") {
 				run = await ai.beta.threads.runs.retrieve(threadId, run.id);
 			}
+
+			isRunning = false;
 
 			const messages = await ai.beta.threads.messages.list(threadId, {
 				limit: 1,
