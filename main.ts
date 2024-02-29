@@ -52,7 +52,7 @@ client.on(
 
 			await ai.beta.threads.messages.create(threadId, {
 				content:
-					`@${message.author.username}#${message.author.discriminator}: ${message.content}`,
+					`${message.author.id} | @${message.author.username}#${message.author.discriminator}: ${message.content}`,
 				role: "user",
 			});
 
