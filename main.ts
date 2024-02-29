@@ -4,7 +4,7 @@ import {
 	GatewayDispatchEvents,
 	GatewayIntentBits,
 } from "@discordjs/core";
-import { WebSocketManager } from "npm:@discordjs/ws";
+import { WebSocketManager } from "@discordjs/ws";
 
 import { OpenAI } from "openai/mod.ts";
 import type { MessageContentText } from "openai/resources/beta/threads/messages/mod.ts";
@@ -38,6 +38,8 @@ client.on(
 				entity.id === Deno.env.get("DISCORD_ID")
 			)
 		) {
+			isRunning = true;
+
 			await api.channels.showTyping(message.channel_id);
 			const kvKey = ["threads", message.channel_id];
 			let threadId = (await kv.get<string>(kvKey)).value;
@@ -48,7 +50,22 @@ client.on(
 				await kv.set(kvKey, newThread.id);
 			}
 
-			isRunning = true;
+			const referencedMessage = message.referenced_message;
+
+			if (referencedMessage) {
+				const repliedMessage = await api.channels.getMessage(
+					message.channel_id,
+					referencedMessage.id,
+				);
+				await ai.beta.threads.messages.create(threadId, {
+					content:
+						`${repliedMessage.author.id} | @${repliedMessage.author.username}#${repliedMessage.author.discriminator}: ${
+							repliedMessage.content ??
+								"[Tidak dapat membaca pesan ini]"
+						}`,
+					role: "user",
+				});
+			}
 
 			await ai.beta.threads.messages.create(threadId, {
 				content:
@@ -60,11 +77,13 @@ client.on(
 				assistant_id: Deno.env.get("ASSISTANT_ID")!,
 			});
 
-			while (run.status != "completed") {
+			while (["in_progress", "queued"].includes(run.status)) {
+				console.log(run.status);
 				run = await ai.beta.threads.runs.retrieve(threadId, run.id);
 			}
 
 			isRunning = false;
+			if (run.status !== "completed") return;
 
 			const messages = await ai.beta.threads.messages.list(threadId, {
 				limit: 1,
