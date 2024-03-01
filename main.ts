@@ -79,27 +79,33 @@ client.on(
 			console.log("request ke openai");
 			let run = await ai.beta.threads.runs.create(threadId, {
 				assistant_id: Deno.env.get("ASSISTANT_ID")!,
+				tools: Object.values(availableTools).map((tool) => tool.data),
+			}, {
+				timeout: 30_000,
 			});
 			console.log(run);
 
 			while (
-				["in_progress", "pending", "requires_action", "queued"].includes(
-					run.status,
-				)
+				["in_progress", "pending", "requires_action", "queued"]
+					.includes(
+						run.status,
+					)
 			) {
 				console.log(run.status);
 				if (run.status === "requires_action") {
 					const toolOutputs: RunSubmitToolOutputsParams.ToolOutput[] =
 						[];
 					for (
-						const toolCall
-							of run.required_action?.submit_tool_outputs
-								.tool_calls ?? []
+						const toolCall of run.required_action!
+							.submit_tool_outputs
+							.tool_calls
 					) {
 						const tool = availableTools[toolCall.function.name];
 						const args = JSON.parse(toolCall.function.arguments);
 
-						const result = await tool.fn({ api, ...args });
+						console.log(args);
+
+						const result = await tool.fn(api, message, args);
 						toolOutputs.push({
 							output: result,
 							tool_call_id: toolCall.id,

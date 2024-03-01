@@ -9,6 +9,17 @@
 		"useTabs": true,
 		"indentWidth": 4
 	},
+	"lint": {
+		"rules": {
+			"tags": [
+				"recommended"
+			],
+			"include": [
+				"ban-untagged-todo",
+				"no-console"
+			]
+		}
+	},
 	"tasks": {
 		"start": "deno run -A --unstable --check main.ts",
 		"test": "deno run -A --watch --env --check main.ts"
