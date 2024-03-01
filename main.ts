@@ -1,3 +1,5 @@
+import availableTools from "./tools/mod.ts";
+
 import { REST } from "@discordjs/rest";
 import {
 	Client,
@@ -8,6 +10,7 @@ import { WebSocketManager } from "@discordjs/ws";
 
 import { OpenAI } from "openai/mod.ts";
 import type { MessageContentText } from "openai/resources/beta/threads/messages/mod.ts";
+import { RunSubmitToolOutputsParams } from "openai/resources/beta/threads/runs/runs.ts";
 
 const token = Deno.env.get("DISCORD_TOKEN")!;
 
@@ -73,16 +76,45 @@ client.on(
 				role: "user",
 			});
 
+			console.log("request ke openai")
 			let run = await ai.beta.threads.runs.create(threadId, {
 				assistant_id: Deno.env.get("ASSISTANT_ID")!,
+				tools: Object.values(availableTools).map((tool) => tool.data),
 			});
+			console.log(run);
 
-			while (["in_progress", "queued"].includes(run.status)) {
-				console.log(run.status);
+			while (["in_progress", "requires_action", "queued"].includes(run.status)) {
+				console.log(run.status)
+				if (run.status === "requires_action") {
+					const toolOutputs: RunSubmitToolOutputsParams.ToolOutput[] =
+						[];
+					for (
+						const toolCall
+							of run.required_action?.submit_tool_outputs
+								.tool_calls ?? []
+					) {
+						const tool = availableTools[toolCall.function.name];
+						const args = JSON.parse(toolCall.function.arguments);
+
+						const result = await tool.fn({ api, ...args });
+						toolOutputs.push({
+							output: result,
+							tool_call_id: toolCall.id,
+						});
+					}
+
+					await ai.beta.threads.runs.submitToolOutputs(
+						threadId,
+						run.id,
+						{ tool_outputs: toolOutputs },
+					);
+				}
 				run = await ai.beta.threads.runs.retrieve(threadId, run.id);
 			}
 
 			isRunning = false;
+
+			console.log("hasil", run.status)
 			if (run.status !== "completed") return;
 
 			const messages = await ai.beta.threads.messages.list(threadId, {
