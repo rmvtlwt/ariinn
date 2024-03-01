@@ -76,15 +76,18 @@ client.on(
 				role: "user",
 			});
 
-			console.log("request ke openai")
+			console.log("request ke openai");
 			let run = await ai.beta.threads.runs.create(threadId, {
 				assistant_id: Deno.env.get("ASSISTANT_ID")!,
-				tools: Object.values(availableTools).map((tool) => tool.data),
 			});
 			console.log(run);
 
-			while (["in_progress", "requires_action", "queued"].includes(run.status)) {
-				console.log(run.status)
+			while (
+				["in_progress", "pending", "requires_action", "queued"].includes(
+					run.status,
+				)
+			) {
+				console.log(run.status);
 				if (run.status === "requires_action") {
 					const toolOutputs: RunSubmitToolOutputsParams.ToolOutput[] =
 						[];
@@ -114,7 +117,7 @@ client.on(
 
 			isRunning = false;
 
-			console.log("hasil", run.status)
+			console.log("hasil", run.status);
 			if (run.status !== "completed") return;
 
 			const messages = await ai.beta.threads.messages.list(threadId, {
