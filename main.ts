@@ -1,3 +1,5 @@
+import { cleanContent } from "./utils/cleanContent.ts";
+
 import { REST } from "@discordjs/rest";
 import {
 	Client,
@@ -58,18 +60,25 @@ client.on(
 					referencedMessage.id,
 				);
 				await ai.beta.threads.messages.create(threadId, {
-					content:
-						`${repliedMessage.author.id} | @${repliedMessage.author.username}#${repliedMessage.author.discriminator}: ${
+					content: cleanContent(
+						`${
+							referencedMessage.author.id ===
+									Deno.env.get("DISCORD_ID")
+								? `@${Deno.env.get("ASSISTANT_NAME")}`
+								: `${repliedMessage.author.id} | @${repliedMessage.author.username}#${repliedMessage.author.discriminator}`
+						}: ${
 							repliedMessage.content ??
 								"[Tidak dapat membaca pesan ini]"
 						}`,
+					),
 					role: "user",
 				});
 			}
 
 			await ai.beta.threads.messages.create(threadId, {
-				content:
+				content: cleanContent(
 					`${message.author.id} | @${message.author.username}#${message.author.discriminator}: ${message.content}`,
+				),
 				role: "user",
 			});
 
@@ -78,12 +87,10 @@ client.on(
 			});
 
 			while (["in_progress", "queued"].includes(run.status)) {
-				console.log(run.status);
+				await new Promise((resolve) => setTimeout(resolve, 2000));
 				run = await ai.beta.threads.runs.retrieve(threadId, run.id);
 			}
-
 			isRunning = false;
-			if (run.status !== "completed") return;
 
 			const messages = await ai.beta.threads.messages.list(threadId, {
 				limit: 1,
